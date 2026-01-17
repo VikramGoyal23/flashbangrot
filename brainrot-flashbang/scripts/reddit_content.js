@@ -1,25 +1,21 @@
 (async function () {
-  if (window.__redditImageFlashRunning) return;
-  window.__redditImageFlashRunning = true;
+  if (window.__redditMediaFlashRunning) return;
+  window.__redditMediaFlashRunning = true;
 
   const SCROLL_INTERVAL_MS = 200;
-  const FLASH_INTERVAL_MS = 120;
-  const BUFFER_SIZE = 6; // how many images to keep preloaded
+  const IMAGE_FLASH_MS = 120;
+  const VIDEO_FLASH_MS = 600;
+  const BUFFER_SIZE = 6;
 
   const seen = new Set();
-  const urlQueue = [];
+  const queue = [];
   const buffer = [];
 
-  /*
-     Overlay
-  */
+  /* ---------------- Overlay ---------------- */
   const overlay = document.createElement("div");
   Object.assign(overlay.style, {
     position: "fixed",
-    top: 0,
-    left: 0,
-    width: "100vw",
-    height: "100vh",
+    inset: 0,
     background: "black",
     zIndex: 999999,
     display: "flex",
@@ -33,20 +29,28 @@
     maxWidth: "100%",
     maxHeight: "100%",
     objectFit: "contain",
-    transition: "opacity 0.08s linear",
     opacity: "0",
+    transition: "opacity 0.08s linear",
   });
 
-  overlay.appendChild(imgEl);
+  const videoEl = document.createElement("video");
+  Object.assign(videoEl.style, {
+    maxWidth: "100%",
+    maxHeight: "100%",
+    objectFit: "contain",
+    display: "none",
+  });
+  videoEl.muted = true;
+  videoEl.playsInline = true;
+
+  overlay.append(imgEl, videoEl);
   document.body.appendChild(overlay);
 
-  /*
-     Helpers
-  */
-  function enqueueUrl(src) {
-    if (!src || seen.has(src)) return;
-    seen.add(src);
-    urlQueue.push(src);
+  /* ---------------- Helpers ---------------- */
+  function enqueue(item) {
+    if (!item?.src || seen.has(item.src)) return;
+    seen.add(item.src);
+    queue.push(item);
   }
 
   function extractGalleryFromPost(postEl) {
@@ -60,108 +64,127 @@
 
       Object.values(media).forEach(item => {
         const url = item?.s?.u;
-        if (url) enqueueUrl(url.replace(/&amp;/g, "&"));
+        if (url) enqueue({ type: "image", src: url.replace(/&amp;/g, "&") });
       });
     } catch {}
   }
 
   async function preloadNext() {
-    if (buffer.length >= BUFFER_SIZE) return;
-    if (urlQueue.length === 0) return;
+    if (buffer.length >= BUFFER_SIZE || queue.length === 0) return;
 
-    const src = urlQueue.shift();
+    const item = queue.shift();
 
-    return new Promise(resolve => {
-      const img = new Image();
-      img.src = src;
+    if (item.type === "image") {
+      return new Promise(res => {
+        const img = new Image();
+        img.src = item.src;
+        img.onload = () => {
+          buffer.push({ type: "image", el: img });
+          res();
+        };
+        img.onerror = res;
+      });
+    }
 
-      img.onload = () => {
-        buffer.push(img);
-        resolve();
-      };
-
-      img.onerror = () => {
-        resolve(); // ignore failures
-      };
-    });
+    if (item.type === "video") {
+      return new Promise(res => {
+        const v = document.createElement("video");
+        v.src = item.src;
+        v.muted = true;
+        v.onloadedmetadata = () => {
+          buffer.push({ type: "video", el: v });
+          res();
+        };
+        v.onerror = res;
+      });
+    }
   }
 
   async function ensureBuffer() {
-    while (buffer.length < BUFFER_SIZE && urlQueue.length > 0) {
+    while (buffer.length < BUFFER_SIZE && queue.length) {
       await preloadNext();
     }
   }
 
-  /* -----------------------------
-     IntersectionObserver
-  ----------------------------- */
-  const observer = new IntersectionObserver(
-    entries => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
+  /* ---------------- IntersectionObserver ---------------- */
+  const observer = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      const el = entry.target;
 
-        const el = entry.target;
+      // Images
+      if (
+        el.tagName === "IMG" &&
+        el.src &&
+        (el.src.includes("i.redd.it") ||
+         el.src.includes("preview.redd.it")) &&
+        el.naturalWidth > 200 &&
+        el.naturalHeight > 200
+      ) {
+        enqueue({ type: "image", src: el.src });
+      }
 
-        if (
-          el.tagName === "IMG" &&
-          el.src &&
-          (el.src.includes("i.redd.it") ||
-           el.src.includes("preview.redd.it")) &&
-          el.naturalWidth > 200 &&
-          el.naturalHeight > 200
-        ) {
-          enqueueUrl(el.src);
+      // Videos
+      if (el.tagName === "VIDEO") {
+        if (el.src?.includes("v.redd.it")) {
+          enqueue({ type: "video", src: el.src });
         }
 
-        const post = el.closest("shreddit-post, div[data-testid='post-container']");
-        if (post) extractGalleryFromPost(post);
+        el.querySelectorAll("source").forEach(s => {
+          if (s.src?.includes("v.redd.it")) {
+            enqueue({ type: "video", src: s.src });
+          }
+        });
       }
-    },
-    {
-      threshold: 0.3,
+
+      const post = el.closest("shreddit-post, div[data-testid='post-container']");
+      if (post) extractGalleryFromPost(post);
     }
-  );
+  }, { threshold: 0.3 });
 
   function observe() {
-    document.querySelectorAll("img, shreddit-post, div[data-testid='post-container']")
+    document
+      .querySelectorAll(
+        "img, video, shreddit-post, div[data-testid='post-container']"
+      )
       .forEach(el => observer.observe(el));
   }
 
-  /*
-     Auto-scroll forever
-  */
+  /* ---------------- Auto-scroll ---------------- */
   observe();
 
   const scrollInterval = setInterval(() => {
-    window.scrollBy(0, window.innerHeight * 1.2);
+    window.scrollBy(0, innerHeight * 1.2);
     observe();
   }, SCROLL_INTERVAL_MS);
 
-  /*
-     Preload loop
-  */
-  const preloadInterval = setInterval(async () => {
-    await ensureBuffer();
-  }, 50);
+  /* ---------------- Preload loop ---------------- */
+  const preloadInterval = setInterval(ensureBuffer, 50);
 
-  /*
-     Flash loop
-  */
-  const flashInterval = setInterval(() => {
-    if (buffer.length === 0) return;
+  /* ---------------- Flash loop ---------------- */
+  const flashInterval = setInterval(async () => {
+    if (!buffer.length) return;
 
-    const img = buffer.shift();
+    const item = buffer.shift();
+
     imgEl.style.opacity = "0";
+    videoEl.style.display = "none";
+    videoEl.pause();
 
-    setTimeout(() => {
-      imgEl.src = img.src;
+    if (item.type === "image") {
+      imgEl.src = item.el.src;
       imgEl.style.opacity = "1";
-    }, 30);
-  }, FLASH_INTERVAL_MS);
+    }
 
-  /*
-     Exit (ESC)
-  */
+    if (item.type === "video") {
+      videoEl.src = item.el.src;
+      videoEl.style.display = "block";
+      await videoEl.play();
+      setTimeout(() => videoEl.pause(), VIDEO_FLASH_MS);
+    }
+  }, IMAGE_FLASH_MS);
+
+  /* ---------------- Exit (ESC) ---------------- */
   function cleanup(e) {
     if (e.key === "Escape") {
       clearInterval(scrollInterval);
@@ -170,7 +193,7 @@
       observer.disconnect();
       overlay.remove();
       document.removeEventListener("keydown", cleanup);
-      window.__redditImageFlashRunning = false;
+      window.__redditMediaFlashRunning = false;
     }
   }
 
