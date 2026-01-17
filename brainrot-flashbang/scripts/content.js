@@ -4,11 +4,13 @@
 
   const SCROLL_INTERVAL_MS = 200;
   const FLASH_INTERVAL_MS = 120;
+  const BUFFER_SIZE = 6; // how many images to keep preloaded
 
   const seen = new Set();
-  const queue = [];
+  const urlQueue = [];
+  const buffer = [];
 
-  /* 
+  /*
      Overlay
   */
   const overlay = document.createElement("div");
@@ -41,10 +43,10 @@
   /*
      Helpers
   */
-  function enqueue(src) {
+  function enqueueUrl(src) {
     if (!src || seen.has(src)) return;
     seen.add(src);
-    queue.push(src);
+    urlQueue.push(src);
   }
 
   function extractGalleryFromPost(postEl) {
@@ -58,9 +60,36 @@
 
       Object.values(media).forEach(item => {
         const url = item?.s?.u;
-        if (url) enqueue(url.replace(/&amp;/g, "&"));
+        if (url) enqueueUrl(url.replace(/&amp;/g, "&"));
       });
     } catch {}
+  }
+
+  async function preloadNext() {
+    if (buffer.length >= BUFFER_SIZE) return;
+    if (urlQueue.length === 0) return;
+
+    const src = urlQueue.shift();
+
+    return new Promise(resolve => {
+      const img = new Image();
+      img.src = src;
+
+      img.onload = () => {
+        buffer.push(img);
+        resolve();
+      };
+
+      img.onerror = () => {
+        resolve(); // ignore failures
+      };
+    });
+  }
+
+  async function ensureBuffer() {
+    while (buffer.length < BUFFER_SIZE && urlQueue.length > 0) {
+      await preloadNext();
+    }
   }
 
   /* -----------------------------
@@ -73,7 +102,6 @@
 
         const el = entry.target;
 
-        // Regular images
         if (
           el.tagName === "IMG" &&
           el.src &&
@@ -82,10 +110,9 @@
           el.naturalWidth > 200 &&
           el.naturalHeight > 200
         ) {
-          enqueue(el.src);
+          enqueueUrl(el.src);
         }
 
-        // Gallery posts
         const post = el.closest("shreddit-post, div[data-testid='post-container']");
         if (post) extractGalleryFromPost(post);
       }
@@ -111,16 +138,23 @@
   }, SCROLL_INTERVAL_MS);
 
   /*
+     Preload loop
+  */
+  const preloadInterval = setInterval(async () => {
+    await ensureBuffer();
+  }, 50);
+
+  /*
      Flash loop
   */
   const flashInterval = setInterval(() => {
-    if (queue.length === 0) return;
+    if (buffer.length === 0) return;
 
-    const src = queue.shift();
+    const img = buffer.shift();
     imgEl.style.opacity = "0";
 
     setTimeout(() => {
-      imgEl.src = src;
+      imgEl.src = img.src;
       imgEl.style.opacity = "1";
     }, 30);
   }, FLASH_INTERVAL_MS);
@@ -131,6 +165,7 @@
   function cleanup(e) {
     if (e.key === "Escape") {
       clearInterval(scrollInterval);
+      clearInterval(preloadInterval);
       clearInterval(flashInterval);
       observer.disconnect();
       overlay.remove();
