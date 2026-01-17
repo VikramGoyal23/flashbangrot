@@ -13,10 +13,16 @@
   },
   "content_scripts": [
     {
-      "js": ["scripts/content.js"],
+      "js": ["scripts/reddit_content.js"],
       "matches": [
         "https://www.reddit.com/",
         "https://www.reddit.com/r/*"
+      ]
+    },
+    {
+      "js": ["scripts/tumblr_content.js"],
+      "matches": [
+        "https://www.tumblr.com/"
       ]
     }
   ]
