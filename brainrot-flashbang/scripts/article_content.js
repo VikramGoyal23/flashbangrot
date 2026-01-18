@@ -4,10 +4,10 @@
 
   const WORD_MS = 120;
 
+  // ---------------- Trigger dictionary ----------------
   const TRIGGERS = {
-    sixseven: { type: "video", path: "assets/sixseven.mp4" }
+    "67": { type: "video", path: "assets/sixseven.mp4" }
   };
-
 
   // ---------------- Overlay ----------------
   const overlay = document.createElement("div");
@@ -39,11 +39,29 @@
     width: "100%",
   });
 
-  overlay.append(titleEl, wordEl);
+  // Media elements (for triggers)
+  const imgEl = document.createElement("img");
+  Object.assign(imgEl.style, {
+    maxWidth: "100%",
+    maxHeight: "100%",
+    objectFit: "contain",
+    display: "none",
+  });
+
+  const videoEl = document.createElement("video");
+  Object.assign(videoEl.style, {
+    maxWidth: "100%",
+    maxHeight: "100%",
+    objectFit: "contain",
+    display: "none",
+  });
+  videoEl.muted = true;
+  videoEl.playsInline = true;
+
+  overlay.append(titleEl, wordEl, imgEl, videoEl);
   document.body.appendChild(overlay);
 
   // ---------------- Text extraction ----------------
-
   function getTextNodes(el) {
     const walker = document.createTreeWalker(
       el,
@@ -65,7 +83,6 @@
   }
 
   function scoreElement(el) {
-    // score based on text length
     const text = el.innerText || "";
     const len = text.trim().length;
     const images = el.querySelectorAll("img").length;
@@ -73,11 +90,9 @@
   }
 
   function findMainArticle() {
-    // 1) Prefer <article>
     const article = document.querySelector("article");
     if (article && scoreElement(article) > 200) return article;
 
-    // 2) Otherwise pick the largest visible text container
     const candidates = Array.from(document.querySelectorAll("main, section, div"));
     const best = candidates
       .filter(el => el.offsetParent !== null)
@@ -94,7 +109,6 @@
       document.title ||
       "";
 
-    // collect all paragraphs and list items
     const paragraphs = Array.from(mainEl.querySelectorAll("p, li"))
       .map(p => p.innerText)
       .filter(Boolean);
@@ -104,7 +118,6 @@
 
   const mainEl = findMainArticle();
   const { title, text } = extractContent(mainEl);
-
   const words = (title + " " + text).split(/\s+/).filter(Boolean);
 
   // ---------------- Fit Font Size ----------------
@@ -118,10 +131,36 @@
   fitFontSize();
   window.addEventListener("resize", fitFontSize);
 
+  // ---------------- Trigger Media ----------------
+  async function showTriggerMedia(trigger) {
+    // hide text
+    wordEl.style.display = "none";
+    imgEl.style.display = "none";
+    videoEl.style.display = "none";
+
+    if (trigger.type === "image") {
+      imgEl.src = chrome.runtime.getURL(trigger.path);
+      imgEl.style.display = "block";
+    }
+
+    if (trigger.type === "video") {
+      videoEl.src = chrome.runtime.getURL(trigger.path);
+      videoEl.style.display = "block";
+      await videoEl.play();
+      setTimeout(() => videoEl.pause(), 1000);
+    }
+  }
+
+  function hideTriggerMedia() {
+    wordEl.style.display = "block";
+    imgEl.style.display = "none";
+    videoEl.style.display = "none";
+  }
+
   // ---------------- Flash words ----------------
   let index = 0;
 
-  const interval = setInterval(() => {
+  const interval = setInterval(async () => {
     if (index >= words.length) {
       clearInterval(interval);
       overlay.remove();
@@ -130,8 +169,17 @@
     }
 
     const word = words[index];
-    wordEl.innerText = word;
+    const trigger = TRIGGERS[word.toLowerCase()];
+
     titleEl.innerText = index === 0 ? title : "";
+
+    if (trigger) {
+      await showTriggerMedia(trigger);
+      setTimeout(hideTriggerMedia, WORD_MS);
+    } else {
+      hideTriggerMedia();
+      wordEl.innerText = word;
+    }
 
     index++;
   }, WORD_MS);
