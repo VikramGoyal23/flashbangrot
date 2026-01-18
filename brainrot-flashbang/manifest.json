@@ -3,7 +3,11 @@
   "name": "Content flashbang",
   "version": "1.0",
   "description": "See all the content on a page, at once",
-  "host_permissions": ["https://www.reddit.com/*"],
+  "permissions": ["storage", "activeTab", "scripting"],
+  "action": {
+    "default_popup": "scripts/popup.html",
+    "default_title": "Set flash rate"
+  },
 
   "icons": {
     "16": "images/icon-16.png",
@@ -22,7 +26,9 @@
     {
       "js": ["scripts/tumblr_content.js"],
       "matches": [
-        "https://www.tumblr.com/"
+        "https://www.tumblr.com/",
+        "https://www.tumblr.com/dashboard",
+        "https://www.tumblr.com/*"
       ]
     }
   ]

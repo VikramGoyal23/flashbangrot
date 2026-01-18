@@ -3,7 +3,11 @@
   window.__redditImageFlashRunning = true;
 
   const SCROLL_INTERVAL_MS = 200;
-  const FLASH_INTERVAL_MS = 120;
+  let FLASH_INTERVAL_MS = 90;
+
+  chrome.storage.sync.get({ flashRate: 90 }, (data) => {
+    FLASH_INTERVAL_MS = data.flashRate;
+  });
   const BUFFER_SIZE = 6; // how many images to keep preloaded
 
   const seen = new Set();
@@ -147,17 +151,35 @@
   /*
      Flash loop
   */
-  const flashInterval = setInterval(() => {
-    if (buffer.length === 0) return;
+let flashInterval = null;
 
-    const img = buffer.shift();
+function startFlashing() {
+  if (flashInterval) clearInterval(flashInterval);
+
+  flashInterval = setInterval(() => {
+    if (!urlQueue.length) return;
+
+    const src = urlQueue.shift();
     imgEl.style.opacity = "0";
 
     setTimeout(() => {
-      imgEl.src = img.src;
+      imgEl.src = src;
       imgEl.style.opacity = "1";
-    }, 30);
+    }, 20);
   }, FLASH_INTERVAL_MS);
+}
+
+chrome.storage.sync.get({ flashRate: 90 }, (data) => {
+  FLASH_INTERVAL_MS = data.flashRate;
+  startFlashing();
+});
+
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.flashRate) {
+    FLASH_INTERVAL_MS = changes.flashRate.newValue;
+    startFlashing();
+  }
+});
 
   /*
      Exit (ESC)
