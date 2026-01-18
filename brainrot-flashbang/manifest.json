@@ -30,6 +30,13 @@
         "https://www.tumblr.com/dashboard",
         "https://www.tumblr.com/*"
       ]
+    },
+    {
+      "js": ["scripts/instagram_content.js"],
+      "matches": [
+        "https://www.instagram.com/",
+        "https://www.instagram.com/*"
+      ]
     }
   ]
 }

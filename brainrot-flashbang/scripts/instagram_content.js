@@ -1,6 +1,6 @@
 (async function () {
-  if (window.__tumblrMediaFlashRunning) return;
-  window.__tumblrMediaFlashRunning = true;
+  if (window.__instagramMediaFlashRunning) return;
+  window.__instagramMediaFlashRunning = true;
 
   const SCROLL_INTERVAL_MS = 200;
   const BUFFER_SIZE = 6;
@@ -54,16 +54,6 @@
     queue.push(item);
   }
 
-  function parseSrcset(srcset) {
-    return srcset.split(",").pop().trim().split(" ")[0];
-  }
-
-  function getBgImage(el) {
-    const bg = getComputedStyle(el).backgroundImage;
-    const m = bg.match(/url\("?(.*?)"?\)/);
-    return m?.[1];
-  }
-
   async function preloadNext() {
     if (buffer.length >= BUFFER_SIZE || queue.length === 0) return;
 
@@ -108,31 +98,22 @@
       const el = e.target;
 
       // Images
-      if (el.tagName === "IMG" && el.src) {
+      if (el.tagName === "IMG" && el.src && el.naturalWidth > 150 && el.naturalHeight > 150) {
         enqueue({ type: "image", src: el.src });
-        if (el.srcset) enqueue({ type: "image", src: parseSrcset(el.srcset) });
       }
-
-      const bg = getBgImage(el);
-      if (bg) enqueue({ type: "image", src: bg });
 
       // Videos
-      if (el.tagName === "VIDEO") {
-        if (el.src) enqueue({ type: "video", src: el.src });
-        el.querySelectorAll("source").forEach(s => {
-          enqueue({ type: "video", src: s.src });
-        });
+      if (el.tagName === "VIDEO" && el.src) {
+        enqueue({ type: "video", src: el.src });
       }
 
-      // Scan whole post
+      // If it's a post container, scan inside
       const post = el.closest("article");
       if (post) {
         post.querySelectorAll("img").forEach(i => {
-          enqueue({ type: "image", src: i.src });
-          if (i.srcset) enqueue({ type: "image", src: parseSrcset(i.srcset) });
+          if (i.src) enqueue({ type: "image", src: i.src });
         });
-
-        post.querySelectorAll("video, video source").forEach(v => {
+        post.querySelectorAll("video").forEach(v => {
           if (v.src) enqueue({ type: "video", src: v.src });
         });
       }
@@ -140,8 +121,9 @@
   }, { threshold: 0.2 });
 
   function observe() {
-    document.querySelectorAll("article, img, video, div")
-      .forEach(el => observer.observe(el));
+    document.querySelectorAll("article, img, video").forEach(el => {
+      observer.observe(el);
+    });
   }
 
   observe();
@@ -212,7 +194,7 @@
       observer.disconnect();
       overlay.remove();
       document.removeEventListener("keydown", cleanup);
-      window.__tumblrMediaFlashRunning = false;
+      window.__instagramMediaFlashRunning = false;
     }
   }
 

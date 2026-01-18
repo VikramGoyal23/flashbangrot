@@ -5,8 +5,8 @@
   const SCROLL_INTERVAL_MS = 200;
   let FLASH_INTERVAL_MS = 90;
 
-  chrome.storage.sync.get({ flashRate: 90 }, (data) => {
-    FLASH_INTERVAL_MS = data.flashRate;
+  chrome.storage.sync.get({ imageFlashMs: 90 }, (data) => {
+    FLASH_INTERVAL_MS = data.imageFlashMs;
   });
   const BUFFER_SIZE = 6; // how many images to keep preloaded
 
@@ -169,14 +169,14 @@ function startFlashing() {
   }, FLASH_INTERVAL_MS);
 }
 
-chrome.storage.sync.get({ flashRate: 90 }, (data) => {
-  FLASH_INTERVAL_MS = data.flashRate;
+chrome.storage.sync.get({ imageFlashMs: 90 }, (data) => {
+  FLASH_INTERVAL_MS = data.imageFlashMs;
   startFlashing();
 });
 
 chrome.storage.onChanged.addListener((changes) => {
-  if (changes.flashRate) {
-    FLASH_INTERVAL_MS = changes.flashRate.newValue;
+  if (changes.imageFlashMs) {
+    FLASH_INTERVAL_MS = changes.imageFlashMs.newValue;
     startFlashing();
   }
 });

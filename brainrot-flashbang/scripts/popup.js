@@ -1,11 +1,18 @@
-const input = document.getElementById("rate");
-const button = document.getElementById("save");
+const imgInput = document.getElementById("imgRate");
+const vidInput = document.getElementById("vidRate");
+const saveBtn = document.getElementById("save");
 
-chrome.storage.sync.get({ flashRate: 90 }, (data) => {
-  input.value = data.flashRate;
+chrome.storage.sync.get({ imageFlashMs: 120, videoFlashMs: 600 }, (data) => {
+  imgInput.value = data.imageFlashMs;
+  vidInput.value = data.videoFlashMs;
 });
 
-button.addEventListener("click", () => {
-  const rate = parseInt(input.value, 10);
-  chrome.storage.sync.set({ flashRate: rate });
+saveBtn.addEventListener("click", () => {
+  const imgRate = parseInt(imgInput.value, 10);
+  const vidRate = parseInt(vidInput.value, 10);
+
+  chrome.storage.sync.set({
+    imageFlashMs: imgRate,
+    videoFlashMs: vidRate,
+  });
 });

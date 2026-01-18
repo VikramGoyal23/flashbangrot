@@ -2,15 +2,20 @@
 <html>
   <head>
     <style>
-      body { font-family: Arial; padding: 10px; width: 200px; }
-      input { width: 100%; padding: 5px; }
-      button { width: 100%; padding: 5px; margin-top: 10px; }
+      body { font-family: Arial; padding: 10px; width: 220px; }
+      label { font-size: 12px; }
+      input { width: 100%; padding: 5px; margin-bottom: 10px; }
+      button { width: 100%; padding: 6px; }
     </style>
   </head>
   <body>
     <div>
-      <label>Flash Rate (ms)</label>
-      <input id="rate" type="number" min="10" value="90" />
+      <label>Image Flash (ms)</label>
+      <input id="imgRate" type="number" min="10" value="120" />
+
+      <label>Video Flash (ms)</label>
+      <input id="vidRate" type="number" min="10" value="600" />
+
       <button id="save">Save</button>
     </div>
     <script src="popup.js"></script>
