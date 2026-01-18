@@ -15,6 +15,12 @@
     "48": "images/icon-48.png",
     "128": "images/icon-128.png"
   },
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "content_scripts": [
     {
       "js": ["scripts/reddit_content.js"],
@@ -36,6 +42,14 @@
       "matches": [
         "https://www.instagram.com/",
         "https://www.instagram.com/*"
+      ]
+    },
+    {
+      "js": ["scripts/article_content.js"],
+      "matches": [
+        "https://*.medium.com/*",
+        "https://medium.com/*",
+        "https://*.wikipedia.org/wiki/*"
       ]
     }
   ]
