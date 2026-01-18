@@ -6,7 +6,10 @@
 
   // ---------------- Trigger dictionary ----------------
   const TRIGGERS = {
-    "67": { type: "video", path: "assets/sixseven.mp4" }
+    "67": { type: "video", path: "assets/sixseven.mp4" },
+    "john": { type: "video", path: "assets/johnpork.mp4" },
+    "pork": { type: "video", path: "assets/johnpork.mp4" },
+    "calling": { type: "video", path: "assets/johnpork.mp4" }
   };
 
   // ---------------- Overlay ----------------
